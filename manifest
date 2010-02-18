@@ -1,0 +1,11 @@
+Changes
+Makefile.PL
+manifest
+readme
+t/00-basic.t
+t/pod.t
+t/pod-coverage.t
+lib/Polycom/Contact.pm
+lib/Polycom/Contact/Directory.pm
+examples/test.pl
+examples/000000000000-directory.xml
