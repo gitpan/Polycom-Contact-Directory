@@ -8,9 +8,10 @@ WriteMakefile(
     VERSION_FROM          => 'lib/Polycom/Contact/Directory.pm', # finds $VERSION
     PREREQ_PM             => {
         'Class::Accessor' => 0,
-        'Test::More'      => 0,
+        'Encode'          => 0,
+        'IO::File'        => 0,
         'List::MoreUtils' => 0,
-        'XML::Simple'     => 0,
+        'Test::More'      => 0,
     },
     ($] >= 5.005 ?     ## Add these new keywords supported since 5.005
       (ABSTRACT_FROM      => 'lib/Polycom/Contact/Directory.pm', # retrieve abstract from module

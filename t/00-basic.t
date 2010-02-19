@@ -3,13 +3,13 @@
 
 #########################
 
-use Test::More tests => 37;
+use Test::More tests => 38;
 BEGIN { use_ok('Polycom::Contact') };
 BEGIN { use_ok('Polycom::Contact::Directory') };
 
 # Test that the appropriate methods exist
-can_ok('Polycom::Contact', qw(new diff is_valid));
-can_ok('Polycom::Contact::Directory', qw(new add all count equals is_valid save search to_xml));
+can_ok('Polycom::Contact', qw(new diff delete is_valid));
+can_ok('Polycom::Contact::Directory', qw(new insert all count equals is_valid save search to_xml));
 
 # Test that we can parse a very simple contact directory
 my $xml = <<'DIR_XML';
@@ -27,13 +27,18 @@ my $xml = <<'DIR_XML';
       <bw>0</bw>
       <bb>0</bb>
     </item>
+    <item>
+      <ln>Johnson</ln>
+      <fn>Bobby</fn>
+      <ct>224</ct>
+    </item>
   </item_list>
 </directory>
 DIR_XML
 
 # Test that we can parse the simplest of contact directories
 my $dir = Polycom::Contact::Directory->new($xml);
-is($dir->count, 1);
+is($dir->count, 2);
 
 my @contacts = $dir->all;
 my $contact = $contacts[0];
@@ -62,6 +67,11 @@ is($contact->buddy_block, 0);
 my @doe = $dir->search({ last_name => 'Doe' });
 is(scalar(@doe), 1);
 
+$doe[0]->delete;
+
+@doe = $dir->search({ last_name => 'Doe' });
+is(scalar(@doe), 0);
+
 my @smith = $dir->search({ last_name => 'Smith' });
 is(scalar(@smith), 0);
 
@@ -77,7 +87,7 @@ is("$bob", 'Bob Smith at 1234');
 # Create a contact directory
 my $contactDirectory = Polycom::Contact::Directory->new();
 
-$contactDirectory->add(
+$contactDirectory->insert(
    {   first_name => 'Bob',
        last_name  => 'Smith',
        contact    => '1',

@@ -3,21 +3,20 @@ use strict;
 use warnings;
 use base qw(Class::Accessor);
 
-our $VERSION = 0.01;
+our $VERSION = 0.02;
 
 use overload (
     '==' => sub { !$_[0]->diff($_[1]) },
     '!=' => sub { scalar $_[0]->diff($_[1]) },
     '""' => sub {
-        my $name = join ' ', grep {defined} 
-            ($_[0]->{first_name}, $_[0]->{last_name});
+        my $name = join ' ', grep {defined} ($_[0]->{first_name}, $_[0]->{last_name});
         return join ' at ', grep {$_} ($name, $_[0]->{contact});
     },
 );
 
 Polycom::Contact->mk_accessors(
-    qw(first_name last_name contact speed_index label ring_type
-       divert auto_reject auto_divert buddy_watching buddy_block)
+    qw(first_name last_name contact speed_index label ring_type divert
+    auto_reject auto_divert buddy_watching buddy_block in_storage)
 );
 
 ###################
@@ -39,12 +38,13 @@ sub new
         auto_divert    => $args{auto_divert} || 0,
         buddy_watching => $args{buddy_watching} || 0,
         buddy_block    => $args{buddy_block} || 0,
+        in_storage     => $args{in_storage} || 0,
     };
 
     if (!defined $self->{contact} || $self->{contact} eq '')
     {
         warn "No 'contact' attribute specified";
-    } 
+    }
 
     return bless $self, $class;
 }
@@ -56,10 +56,17 @@ sub is_valid
 {
     my ($self) = @_;
 
-    if ($self->{contact})
+    if (defined $self->{contact} && $self->{contact} ne '')
     {
         return 1;
     }
+    return;
+}
+
+sub delete
+{
+    my ($self) = @_;
+    $self->{in_storage} = 0;
     return;
 }
 
@@ -87,20 +94,21 @@ sub diff
     {
         my $mine   = defined $self->{$attr}  ? $self->{$attr}  : 0;
         my $theirs = defined $other->{$attr} ? $other->{$attr} : 0;
-        
+
         # Normalize boolean fields
-        if ($attr eq 'auto_reject' || $attr eq 'auto_divert'
+        if (   $attr eq 'auto_reject'
+            || $attr eq 'auto_divert'
             || $attr eq 'buddy_watching')
         {
-            $mine   =~ s/Enabled/1/i;    
-            $theirs =~ s/Enabled/1/i;    
-            $mine   =~ s/Disabled//i;    
-            $theirs =~ s/Disabled//i;    
+            $mine   =~ s/Enabled/1/i;
+            $theirs =~ s/Enabled/1/i;
+            $mine   =~ s/Disabled//i;
+            $theirs =~ s/Disabled//i;
         }
-        
+
         if ($mine ne $theirs)
         {
-            push(@nonMatchingFields, $attr);
+            push @nonMatchingFields, $attr;
         }
     }
 
@@ -153,18 +161,31 @@ The Polycom::Contact class is used to represent a contact in a Polycom VoIP phon
 Returns a newly created C<Polycom::Contact> object.
 
 In all, each C<Polycom::Contact> object can have the following fields:
+
 =over
+
 =item first_name
+
 =item last_name
+
 =item contact
+
 =item speed_index
+
 =item label
+
 =item ring_type
+
 =item divert
+
 =item auto_reject
+
 =item auto_divert
+
 =item buddy_watching
+
 =item buddy_block
+
 =back
 
 Of those fields, the I<contact> field is the only required field; without a unique I<contact> field, the phone will not load the contact.
@@ -177,6 +198,15 @@ Of those fields, the I<contact> field is the only required field; without a uniq
   }
 
 Returns I<undef> if the contact is invalid (i.e. it has no I<contact> value specified), or 1 otherwise.
+
+=item I<$contact>->delete
+
+  my @contacts = $dir->search({first_name => 'Bob'});
+  $contacts[0]->delete;
+  
+Removes the contact from the directory it belongs to (see Polycom::Contact::Directory).
+If the Polycom::Contact object was created from scratch, rather than from an existing
+contact directory object, then calling I<delete()> has no effect.
 
 =item I<$contact>->diff(I<$contact2>)
 

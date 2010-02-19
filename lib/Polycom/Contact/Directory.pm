@@ -1,15 +1,14 @@
 package Polycom::Contact::Directory;
 use strict;
 use warnings;
-use utf8;
 
+use Encode;
 use IO::File;
 use List::MoreUtils;
-use XML::Simple;
 
 use Polycom::Contact;
 
-our $VERSION = 0.01;
+our $VERSION = 0.02;
 
 ######################################
 # Overloaded Operators
@@ -29,51 +28,89 @@ sub new
     my @contacts;
     if ($file)
     {
-        my $xml = XMLin(
-            $file,
-            ForceArray => [ 'item_list', 'item' ],
-            KeyAttr => []
-        );
+        my $xml;
 
-        @contacts = map {
-            Polycom::Contact->new(
-                first_name     => $_->{fn},
-                last_name      => $_->{ln},
-                contact        => $_->{ct},
-                speed_index    => $_->{sd},
-                label          => $_->{lb},
-                ring_type      => $_->{rt},
-                divert         => $_->{dc} || 0,
-                auto_reject    => $_->{ar} || 0,
-                auto_divert    => $_->{ad} || 0,
-                buddy_watching => $_->{bw} || 0,
-                buddy_block    => $_->{bb} || 0,
-            );
-        } (@{ $xml->{item_list}->[0]->{item} });
+        if ($file =~ /<\/item>/)
+        {
+            $xml = $file;
+        }
+        elsif (ref $file)
+        {
+            binmode($file, ':utf8');
+            $xml = do { local $/; <$file> };
+        }
+        elsif (-e $file)
+        {
+            my $fh = IO::File->new($file, '<');
+            $fh->binmode(':utf8');
+            $xml = do { local $/; <$fh> };
+        }
+        else
+        {
+            die "Cannot open '$file'";
+        }
+
+        if (!utf8::is_utf8($xml))
+        {
+            $xml = Encode::decode('utf8', $xml);
+        }
+
+        while ($xml =~ m/<item>(.*?)<\/item>/gs)
+        {
+            my $str = $1;
+            my ($fn) = $str =~ /<fn>(.*?)<\/fn>/s;
+            my ($ln) = $str =~ /<ln>(.*?)<\/ln>/s;
+            my ($ct) = $str =~ /<ct>(.*?)<\/ct>/s;
+            my ($sd) = $str =~ /<sd>(.*?)<\/sd>/s;
+            my ($lb) = $str =~ /<lb>(.*?)<\/lb>/s;
+            my ($rt) = $str =~ /<rt>(.*?)<\/rt>/s;
+            my ($dc) = $str =~ /<dc>(.*?)<\/dc>/s;
+            my ($ar) = $str =~ /<ar>(.*?)<\/ar>/s;
+            my ($ad) = $str =~ /<ad>(.*?)<\/ad>/s;
+            my ($bw) = $str =~ /<bw>(.*?)<\/bw>/s;
+            my ($bb) = $str =~ /<bb>(.*?)<\/bb>/s;
+
+            push @contacts,
+                Polycom::Contact->new(
+                first_name     => $fn,
+                last_name      => $ln,
+                contact        => $ct,
+                speed_index    => $sd,
+                label          => $lb,
+                ring_type      => $rt,
+                divert         => $dc || 0,
+                auto_reject    => $ar || 0,
+                auto_divert    => $ad || 0,
+                buddy_watching => $bw || 0,
+                buddy_block    => $bb || 0,
+                in_storage     => 1,
+                );
+        }
     }
 
-    return bless {
-        contacts => \@contacts,
-    }, $class;
+    return bless { contacts => \@contacts, }, $class;
 }
 
 ###################
 # Public methods
 ###################
 
-sub add
+sub insert
 {
     my ($self, @contacts) = @_;
 
-    push @{$self->{contacts}}, map
-        {
-            UNIVERSAL::isa($_, 'Polycom::Contact') ? $_ : Polycom::Contact->new(%{$_})
-        } @contacts;
+    foreach my $c (@contacts)
+    {
+        $c->{in_storage} = 1;
+        push @{ $self->{contacts} },
+            UNIVERSAL::isa($c, 'Polycom::Contact') ? $c : Polycom::Contact->new(%{$c});
+    }
+
 }
 
 sub all
 {
-    return @{$_[0]->{contacts}};
+    return grep { $_->in_storage } @{ $_[0]->{contacts} };
 }
 
 sub search
@@ -82,13 +119,15 @@ sub search
     return if !defined $cond || !ref $cond;
 
     my @results;
-    foreach my $contact (@{$self->{contacts}})
+    foreach my $c ($self->all)
     {
-       if (List::MoreUtils::all { defined $cond->{$_} && $contact->{$_} eq $cond->{$_} } keys %{$cond})
-       {
-           push @results, $contact;
-       }
-    }  
+        if (List::MoreUtils::all { defined $cond->{$_} && $c->{$_} eq $cond->{$_} }
+            keys %{$cond}
+            )
+        {
+            push @results, $c;
+        }
+    }
 
     return @results;
 }
@@ -96,35 +135,33 @@ sub search
 sub count
 {
     my ($self) = @_;
-    return scalar(@{$self->{contacts}});
+    return scalar(grep { $_->in_storage } @{ $self->{contacts} });
 }
 
 sub to_xml
 {
     my ($self) = @_;
-    
-    my $xml =   "<directory>\n"
-            .   " <item_list>\n";
-    foreach my $contact ($self->all)
+
+    my $xml = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>';
+    $xml .= "<directory>\n <item_list>\n";
+    foreach my $c ($self->all)
     {
         $xml .= "  <item>\n";
-        $xml .= "   <fn>$contact->{first_name}</fn>\n"     if defined $contact->{first_name};
-        $xml .= "   <ln>$contact->{last_name}</ln>\n"      if defined $contact->{last_name};
-        $xml .= "   <ct>$contact->{contact}</ct>\n"        if defined $contact->{contact};
-        $xml .= "   <sd>$contact->{speed_index}</sd>\n"    if defined $contact->{speed_index};
-        $xml .= "   <lb>$contact->{label}</lb>\n"          if defined $contact->{label};
-        $xml .= "   <rt>$contact->{ring_type}</rt>\n"      if defined $contact->{ring_type};
-        $xml .= "   <dc>$contact->{divert}</dc>\n"         if defined $contact->{divert};
-        $xml .= "   <ar>$contact->{auto_reject}</ar>\n"    if defined $contact->{auto_reject};
-        $xml .= "   <ad>$contact->{auto_divert}</ad>\n"    if defined $contact->{auto_divert};
-        $xml .= "   <bw>$contact->{buddy_watching}</bw>\n" if defined $contact->{buddy_watching};
-        $xml .= "   <bb>$contact->{buddy_block}</bb>\n"    if defined $contact->{buddy_block};
+        $xml .= "   <fn>$c->{first_name}</fn>\n" if defined $c->{first_name};
+        $xml .= "   <ln>$c->{last_name}</ln>\n" if defined $c->{last_name};
+        $xml .= "   <ct>$c->{contact}</ct>\n" if defined $c->{contact};
+        $xml .= "   <sd>$c->{speed_index}</sd>\n" if defined $c->{speed_index};
+        $xml .= "   <lb>$c->{label}</lb>\n" if defined $c->{label};
+        $xml .= "   <rt>$c->{ring_type}</rt>\n" if defined $c->{ring_type};
+        $xml .= "   <dc>$c->{divert}</dc>\n" if defined $c->{divert};
+        $xml .= "   <ar>$c->{auto_reject}</ar>\n" if defined $c->{auto_reject};
+        $xml .= "   <ad>$c->{auto_divert}</ad>\n" if defined $c->{auto_divert};
+        $xml .= "   <bw>$c->{buddy_watching}</bw>\n" if defined $c->{buddy_watching};
+        $xml .= "   <bb>$c->{buddy_block}</bb>\n" if defined $c->{buddy_block};
         $xml .= "  </item>\n";
     }
-    
-    $xml .=     " </item_list>\n"
-          .     '</directory>';
-    
+    $xml .= " </item_list>\n</directory>";
+
     return $xml;
 }
 
@@ -132,10 +169,10 @@ sub save
 {
     my ($self, $filename) = @_;
 
-	my $fh = IO::File->new($filename, '>');
-	$fh->binmode(':utf8');
+    my $fh = IO::File->new($filename, '>');
+    $fh->binmode(':utf8');
 
-	print $fh $self->to_xml;
+    print $fh $self->to_xml;
 }
 
 sub is_valid
@@ -144,27 +181,27 @@ sub is_valid
 
     my %contact_num;
     my %speed_index;
-    foreach my $contact (@{$self->{contacts}})
+    foreach my $c ($self->all)
     {
         # Verify that all of the constituent contacts are valid
-        if (!$contact->is_valid)
+        if (!$c->is_valid)
         {
             return;
         }
 
         # Verify that there are no duplicate contact values
-        if (exists $contact_num{$contact->{contact}})
+        if (exists $contact_num{ $c->{contact} })
         {
             return;
         }
-        $contact_num{$contact->{contact}} = 1;
+        $contact_num{ $c->{contact} } = 1;
 
         # Verify that there are no duplicate speed dial values
-        if (exists $speed_index{$contact->{speed_index}})
+        if (exists $speed_index{ $c->{speed_index} })
         {
             return;
         }
-        $speed_index{$contact->{speed_index}} = 1;
+        $speed_index{ $c->{speed_index} } = 1;
     }
 
     return 1;
@@ -173,18 +210,20 @@ sub is_valid
 sub equals
 {
     my ($self, $other) = @_;
-    
+
     # The are unequal if they contain different numbers of contacts
     return if $self->count != $other->count;
-    
-    for my $i (0 .. $self->count - 1)
+
+    my @myAll    = $self->all;
+    my @otherAll = $other->all;
+    for my $i (0 .. @myAll - 1)
     {
-        if ($self->{contacts}->[$i] != $other->{contacts}->[$i])
+        if ($myAll[$i] != $otherAll[$i])
         {
             return;
         }
     }
-    
+
     return 1;
 }
 
@@ -201,30 +240,26 @@ Polycom::Contact::Directory - Module for parsing, modifying, and creating Polyco
   # Load an existing contact directory file
   my $dir = Polycom::Contact::Directory->new('0004f21ac123-directory.xml');  
 
-  # Add some contacts
-  $dir->add(
+  # Add a contact
+  $dir->insert(
     {   first_name => 'Jenny',
         last_name  => 'Xu',
         contact    => '2',
     },
-    {   first_name => 'Jacky',
-        last_name  => 'Cheng',
-        contact    => '3',
-    },
   );
+  
+  # Find some contacts
+  my @all    = $dir->all;
+  my @smiths = $dir->search({ last_name => 'Smith' });
+  
+  # Modify a contact in the directory
+  $smiths[0]->last_name('Johnson');
+  
+  # Remove a contact
+  $smiths[1]->delete;
 
   # Save the directory to an XML file suitable for being read by the phone
   $dir->save('0004f21ac123-directory.xml');
-
-  # Iterate through all of the contacts 
-  foreach my $contact ($dir->all)
-  {
-    # ...
-  }
-
-  # Find only those contacts whose last name is "Smith"
-  my @smiths = $dir->search({ last_name => 'Smith' });
-
 
 =head1 DESCRIPTION
 
@@ -258,9 +293,9 @@ If you have already slurped the contents of a contact directory file into a scal
 
   my $dir = Polycom::Contact::Directory->new($xml);
 
-=item I<$dir>->add(@contacts)
+=item I<$dir>->insert(@contacts)
 
-  $dir->add(
+  $dir->insert(
     {   first_name => 'Jenny',
         last_name  => 'Xu',
         contact    => '2',

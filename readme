@@ -1,4 +1,4 @@
-Polycom::Contact::Directory version 0.01
+Polycom::Contact::Directory version 0.02
 ================================
 
 This module can be used to parse, modify, or create local contact directory files like those used by Polycom's SoundPoint IP, SoundStation IP, and VVX 1500 VoIP phones.
@@ -15,8 +15,11 @@ To install this module, type the following:
 DEPENDENCIES
 
 Class::Accessor
+Encode
+IO::File
 List::MoreUtils
-XML::Simple
+Test::More
+perl 5.8
 
 COPYRIGHT AND LICENCE
 
