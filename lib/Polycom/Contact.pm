@@ -3,7 +3,7 @@ use strict;
 use warnings;
 use base qw(Class::Accessor);
 
-our $VERSION = 0.02;
+our $VERSION = 0.03;
 
 use overload (
     '==' => sub { !$_[0]->diff($_[1]) },
@@ -54,13 +54,69 @@ sub new
 ###################
 sub is_valid
 {
-    my ($self) = @_;
+    my ($self, $reason) = @_;
 
-    if (defined $self->{contact} && $self->{contact} ne '')
+    if (defined $self->first_name && length $self->first_name > 40)
     {
-        return 1;
+        $reason = 'first_name must be <= 40 bytes long';        
+        return;
     }
-    return;
+
+    if (defined $self->last_name && length $self->last_name > 40)
+    {
+        $reason = 'last_name must be <= 40 bytes long';        
+        return;
+    }
+
+    if (!defined $self->contact || $self->contact eq '')
+    {
+        $reason = 'contact is a required field';
+        return;
+    }
+
+    if (   defined $self->speed_index
+        && ($self->speed_index !~ /^\d*$/
+        || $self->speed_index < 1
+        || $self->speed_index > 9999))
+    {
+        $reason = 'speed_index must be a number between 1 and 9999';
+        return;
+    }
+
+    if (   defined $self->ring_type
+        && ($self->ring_type !~ /^\d*$/
+        || $self->ring_type < 1
+        || $self->ring_type > 21))
+    {
+        $reason = 'ring_type must be a number between 1 and 21';
+        return;
+    }
+
+    if (defined $self->auto_divert && $self->auto_divert !~ /^[01]?$/)
+    {
+        $reason = 'auto_divert must be either "", 0, or 1';
+        return;
+    }
+
+    if (defined $self->auto_reject && $self->auto_reject !~ /^[01]?$/)
+    {
+        $reason = 'auto_reject must be either "", 0, or 1';
+        return;
+    }
+
+    if (defined $self->buddy_watching && $self->buddy_watching !~ /^[01]?$/)
+    {
+        $reason = 'buddy_watching must be either "", 0, or 1';
+        return;
+    }
+
+    if (defined $self->buddy_block && $self->buddy_block !~ /^[01]?$/)
+    {
+        $reason = 'buddy_block must be either "", 0, or 1';
+        return;
+    }
+
+    return 1;
 }
 
 sub delete
@@ -95,7 +151,7 @@ sub diff
         my $mine   = defined $self->{$attr}  ? $self->{$attr}  : 0;
         my $theirs = defined $other->{$attr} ? $other->{$attr} : 0;
 
-        # Normalize boolean fields
+        # Normalize Boolean fields
         if (   $attr eq 'auto_reject'
             || $attr eq 'auto_divert'
             || $attr eq 'buddy_watching')
@@ -117,7 +173,7 @@ sub diff
 
 =head1 NAME
 
-Polycom::Contact - Class representing local contact directory contacts of Polycom VoIP phones.
+Polycom::Contact - Contact in a Polycom SoundPoint IP, SoundStation IP, or VVX phone's local contact directory.
 
 =head1 SYNOPSIS
 
@@ -147,13 +203,11 @@ Polycom::Contact - Class representing local contact directory contacts of Polyco
 
 =head1 DESCRIPTION
 
-The Polycom::Contact class is used to represent a contact in a Polycom VoIP phone's local contact directory. This class is intended to be used with Polycom::Contact::Directory, which parses entire contact directory files, extracting the contacts, and enabling you to read or modify them.
+The C<Polycom::Contact> class is used to represent a contact in a Polycom VoIP phone's local contact directory. This class is intended to be used with C<Polycom::Contact::Directory>, which parses entire contact directory files, extracting the contacts, and enabling you to read or modify them.
 
-=head2 Methods
+=head1 CONSTRUCTOR
 
-=over 4
-
-=item Polycom::Contact->new()
+=head2 new ( %fields )
 
   use Polycom::Contact;
   my $contact = Polycom::Contact->new(first_name => 'Bob', contact => 1234);
@@ -162,67 +216,128 @@ Returns a newly created C<Polycom::Contact> object.
 
 In all, each C<Polycom::Contact> object can have the following fields:
 
-=over
+  first_name       - first name
+  last_name        - last name
+  contact          - phone number or URL (required)
+  speed_index      - speed dial index (1 - 9999)
+  label            - label to show on speed dial keys
+  ring_type        - distinctive incoming ring tone (1 - 22)
+  divert           - phone number or URL to divert incoming calls to
+  auto_reject      - automatically reject calls from this contact (0 = no, 1 = yes)
+  auto_divert      - automatically divert calls from this contact (0 = no, 1 = yes)
+  buddy_watching   - include in the list of watched phones (0 = no, 1 = yes)
+  buddy_block      - block from watching this phone (0 = no, 1 = yes)
 
-=item first_name
+Of those fields, the C<contact> field is the only required field; without a unique C<contact> field, the phone will not load the contact.
 
-=item last_name
+=head1 ACCESSORS
 
-=item contact
+=head2 first_name
 
-=item speed_index
+  my $fn = $contact->first_name;
+  $contact->first_name('Bob');  # Set the first_name to "Bob"
 
-=item label
+=head2 last_name
 
-=item ring_type
+  my $ln = $contact->last_name;
+  $contact->last_name('Smith');  # Set the last_name to "Smith"
 
-=item divert
+=head2 contact
 
-=item auto_reject
+The phone number, extension, or URL of the contact. This field must be present (i.e. not blank) and must be unique.
 
-=item auto_divert
+  my $num = $contact->contact;
+  $contact->contact('1234');  # Set the contact number to 1234
 
-=item buddy_watching
+=head2 speed_index
 
-=item buddy_block
+The speed dial index for the contact (1 - 9999).
 
-=back
+  my $sd = $contact->speed_index;
+  $contact->speed_index(5);  # Set the speed index to 5
 
-Of those fields, the I<contact> field is the only required field; without a unique I<contact> field, the phone will not load the contact.
+=head2 label
 
-=item I<$contact>->is_valid
+The label to show on speed dial keys (e.g. "Manager").
+
+  my $lb = $contact->label;
+  $contact->label('Sales');  # Set the label to "Sales"
+
+=head2 ring_type
+
+The distinctive incoming ring tone for this contact (1 - 22).
+
+  my $rt = $contact->ring_type;
+  $contact->ring_type(2);  # Set the ring type to 2
+
+=head2 divert
+
+The phone number or URL to divert incoming calls to.
+
+  my $divert = $contact->divert;
+  $contact->divert(2345);  # Set the divert phone number to 2345
+
+=head2 auto_reject
+
+Specifies whether to automatically reject calls from this contact (0 = no, 1 = yes).
+
+  print "Calls from $contact will be automatically rejected" if ($contact->auto_reject);
+  $contact->auto_reject(1);  # Enable auto reject
+
+=head2 auto_divert
+
+Specifies whether to automatically divert calls from this contact (0 = no, 1 = yes).
+
+  print "Calls from $contact will be automatically diverted" if ($contact->auto_divert);
+  $contact->auto_divert(1);  # Enable auto divert
+
+=head2 buddy_watching
+
+Specifies whether to include this contact in the list of watched phones (0 = no, 1 = yes).
+
+  print "$contact is in the watched list" if ($contact->buddy_watching);
+  $contact->buddy_watching(1);  # Add this contact to the buddy list
+
+=head2 buddy_block
+
+Specifies whether to block this contact from watching this phone (0 = no, 1 = yes).
+
+  print "$contact is blocked from watching" if ($contact->buddy_block);
+  $contact->buddy_block(1);  # Prevent this contact from watching this phone
+
+=head1 METHODS
+
+=head2 is_valid
 
   if (!$contact->is_valid)
   {
       print "$contact is invalid.\n";
   }
 
-Returns I<undef> if the contact is invalid (i.e. it has no I<contact> value specified), or 1 otherwise.
+Returns I<undef> if the contact is invalid (i.e. it has no C<contact> value specified), or 1 otherwise.
 
-=item I<$contact>->delete
+=head2 delete
 
   my @contacts = $dir->search({first_name => 'Bob'});
   $contacts[0]->delete;
   
-Removes the contact from the directory it belongs to (see Polycom::Contact::Directory).
-If the Polycom::Contact object was created from scratch, rather than from an existing
-contact directory object, then calling I<delete()> has no effect.
+Removes the contact from the directory it belongs to (see C<Polycom::Contact::Directory>).
+If the C<Polycom::Contact> object was created from scratch, rather than from an existing
+contact directory object, then calling C<delete> has no effect.
 
-=item I<$contact>->diff(I<$contact2>)
+=head2 diff ( $contact2 )
 
   my @differences = $contact1->diff($contact2);
 
 Returns an array of contact field names that do not match (e.g. "First Name", "Speed Dial").
 
-=back
-
 =head1 SEE ALSO
 
-Polycom::Contact::Directory - A closely related module that parses the XML-based local contact directory file used by Polycom VoIP phones, and can be used to read, modify, or create contacts in the file. 
+C<Polycom::Contact::Directory> - A closely related module that parses the XML-based local contact directory file used by Polycom SoundPoint IP, SoundStation IP, and VVX VoIP phones, and can be used to read, modify, or create contacts in the file. 
 
 =head1 AUTHOR
 
-Zachary Blair, E<lt>zachary.blair@polycom.comE<gt>
+Zachary Blair, E<lt>zblair@cpan.orgE<gt> 2010
 
 =head1 COPYRIGHT AND LICENSE
 
