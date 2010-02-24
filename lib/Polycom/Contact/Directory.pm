@@ -8,7 +8,7 @@ use List::MoreUtils;
 
 use Polycom::Contact;
 
-our $VERSION = 0.03;
+our $VERSION = 0.04;
 
 ######################################
 # Overloaded Operators

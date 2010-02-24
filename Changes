@@ -9,3 +9,6 @@ Revision history for Perl extension Polycom::Contact::Directory
 0.03  Sun Feb 21 10:00:00 2010
     - fixed some documentation, added more tests and XML entities support
 
+0.04  Tue Feb 23 10:00:00 2010
+    - fixed some documentation and added some example scripts
+

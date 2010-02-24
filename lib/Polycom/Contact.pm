@@ -3,7 +3,7 @@ use strict;
 use warnings;
 use base qw(Class::Accessor);
 
-our $VERSION = 0.03;
+our $VERSION = 0.04;
 
 use overload (
     '==' => sub { !$_[0]->diff($_[1]) },
@@ -173,7 +173,7 @@ sub diff
 
 =head1 NAME
 
-Polycom::Contact - Contact in a Polycom SoundPoint IP, SoundStation IP, or VVX phone's local contact directory.
+Polycom::Contact - Contact in a Polycom VoIP phone's local contact directory.
 
 =head1 SYNOPSIS
 
@@ -203,7 +203,7 @@ Polycom::Contact - Contact in a Polycom SoundPoint IP, SoundStation IP, or VVX p
 
 =head1 DESCRIPTION
 
-The C<Polycom::Contact> class is used to represent a contact in a Polycom VoIP phone's local contact directory. This class is intended to be used with C<Polycom::Contact::Directory>, which parses entire contact directory files, extracting the contacts, and enabling you to read or modify them.
+The C<Polycom::Contact> class represents a contact in a Polycom SoundPoint IP, SoundStation IP, or VVX phone's local contact directory. This class is intended to be used with C<Polycom::Contact::Directory>, which parses entire contact directory files, extracting the contacts, and enabling you to read or modify them.
 
 =head1 CONSTRUCTOR
 
@@ -256,6 +256,8 @@ The speed dial index for the contact (1 - 9999).
   my $sd = $contact->speed_index;
   $contact->speed_index(5);  # Set the speed index to 5
 
+Contacts that have a speed dial index specified are listed in the phone's speed dial menu and are mapped to unused line keys for quick access.
+
 =head2 label
 
 The label to show on speed dial keys (e.g. "Manager").
@@ -269,6 +271,8 @@ The distinctive incoming ring tone for this contact (1 - 22).
 
   my $rt = $contact->ring_type;
   $contact->ring_type(2);  # Set the ring type to 2
+
+The ring type number must correspond to a ring type listed in the I<Settings> > I<Basic> > I<Ring Type> menu on the phone. When an incoming call is received from the contact, the specified ring tone will play instead of the default ring tone.
 
 =head2 divert
 
@@ -337,7 +341,7 @@ C<Polycom::Contact::Directory> - A closely related module that parses the XML-ba
 
 =head1 AUTHOR
 
-Zachary Blair, E<lt>zblair@cpan.orgE<gt> 2010
+Zachary Blair, E<lt>zblair@cpan.orgE<gt>
 
 =head1 COPYRIGHT AND LICENSE
 
