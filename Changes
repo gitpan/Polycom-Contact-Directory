@@ -11,4 +11,7 @@ Revision history for Perl extension Polycom::Contact::Directory
 
 0.04  Tue Feb 23 10:00:00 2010
     - fixed some documentation and added some example scripts
+    
+0.05  Mon Jul 05 10:00:00 2010
+    - added more unit tests and an example script for converting to CSV
 

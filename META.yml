@@ -1,6 +1,6 @@
 ---
 name: Polycom-Contact-Directory
-version: 0.04
+version: 0.05
 author: ["Zachary Blair <zblair@cpan.org>"]
 abstract: 'Parse local contact directory files for Polycom VoIP phones'
 license: perl
@@ -24,10 +24,10 @@ no_index:
 provides:
   Polycom::Contact::Directory:
     file: lib/Polycom/Contact/Directory.pm
-    version: 0.04
+    version: 0.05
   Polycom::Contact:
     file: lib/Polycom/Contact.pm
-    version: 0.04
+    version: 0.05
 keywords:
   - Polycom
   - VoIP
@@ -35,6 +35,7 @@ keywords:
   - Directory
   - SoundPoint
   - VVX
+  - CSV
 meta-spec:
   url: http://module-build.sourceforge.net/META-spec-v1.4.html
   version: 1.4

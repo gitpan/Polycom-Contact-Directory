@@ -3,7 +3,7 @@ use strict;
 use warnings;
 use base qw(Class::Accessor);
 
-our $VERSION = 0.04;
+our $VERSION = 0.05;
 
 use overload (
     '==' => sub { !$_[0]->diff($_[1]) },

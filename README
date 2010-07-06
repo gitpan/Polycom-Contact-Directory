@@ -1,4 +1,4 @@
-Polycom::Contact::Directory version 0.04
+Polycom::Contact::Directory version 0.05
 ================================
 
 This module can be used to parse, modify, or create local contact directory files like those used by
